@@ -13,12 +13,19 @@ import "@chainlink/contracts/src/v0.6/vendor/SafeMathChainlink.sol";
 // Also can be use for other purpose https://docs.openzeppelin.com/contracts/4.x/api/access
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Lottery is Ownable {
+// To get verified random number, can be used for production also
+import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
+
+contract Lottery is Ownable, VRFConsumerBase {
     // safe math library check uint256 for integer overflows
     using SafeMathChainlink for uint256;
 
     address payable[] public players;
+    address payable public recentWinner;
     uint256 public usdEntryFee;
+
+    uint256 public fee;
+    bytes32 public keyhash;
 
     AggregatorV3Interface internal ethUsdPriceFeed;
 
@@ -30,12 +37,22 @@ contract Lottery is Ownable {
     }
     LOTTERY_STATE public lottery_state;
 
-    constructor(address _priceFeedAddress) public {
+    constructor(
+        address _priceFeedAddress,
+        address _vrfCoordinator,
+        address _link,
+        uint256 _fee,
+        bytes32 _keyhash
+    ) public VRFConsumerBase(_vrfCoordinator, _link) {
+        // Minimum $50
         usdEntryFee = 50 * (10**18);
         ethUsdPriceFeed = AggregatorV3Interface(_priceFeedAddress);
         lottery_state = LOTTERY_STATE.CLOSED; // OR lottery_state = 1;
+        fee = _fee;
+        keyhash = _keyhash;
     }
 
+    // become a player
     function enter() public payable {
         require(
             lottery_state == LOTTERY_STATE.OPEN,
@@ -69,5 +86,60 @@ contract Lottery is Ownable {
         lottery_state = LOTTERY_STATE.OPEN;
     }
 
-    function endLottery() public {}
+    // Select winner
+    function endLottery() public onlyOwner {
+        require(
+            lottery_state == LOTTERY_STATE.OPEN,
+            "Please start a lottery first."
+        );
+        lottery_state = LOTTERY_STATE.CALCULATING_WINNER;
+
+        // Recomendation: try to use global variable while generating random
+        // Below keccack256 way of regerating random in production is highly not recommended becoz it's all parameter are predictable and hence random number can be regerated(hacked)
+
+        // keccack256 is hashing algorithms
+        // % player.length is to get index within player.length
+
+        // uint256(
+        //     keccak256(
+        //         abi.encodePacked(
+        //             nonce, // nonce is predictable (aka, transaction number)
+        //             msg.sender, // msg.sender is predictable
+        //             block.difficulty, // can actually be manipulated by miners...
+        //             block.timestamp // timestamp is predictable
+        //         );
+        //     )
+        // ) % players.length;
+
+        // Correct way of getting random
+        // requestRandomness is the function from VRFConsumerBase
+        // https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.6/VRFConsumerBase.sol
+        // Once below requestRandomness(keyhash, fee) function returns requestId successfully
+        // it will then call fulfillRandomness() automatically. So basically we request chainlink
+        // for a random number and in the run time chainlink generates random number and send
+        // via fulfillRandomness() function.
+        bytes32 requestId = requestRandomness(keyhash, fee);
+    }
+
+    function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
+        internal
+        override
+    {
+        require(
+            lottery_state == LOTTERY_STATE.CALCULATING_WINNER,
+            "You are not there yet!"
+        );
+
+        require(_randomness > 0, "Random-Not-Found");
+
+        uint256 indexOfWinner = _randomness % players.length;
+        recentWinner = players[indexOfWinner];
+
+        // transfer amount to winner
+        recentWinner.transfer(address(this).balance);
+
+        // Reset all variables
+        players = new address payable[](0);
+        lottery_state = LOTTERY_STATE.CLOSED;
+    }
 }
