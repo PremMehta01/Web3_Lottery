@@ -1,5 +1,6 @@
-from scripts.helpful_scripts import get_account, get_contract
+from scripts.helpful_scripts import get_account, get_contract, fund_with_link
 from brownie import Lottery, config, network
+import time
 
 
 def deploy_lottery():
@@ -21,5 +22,42 @@ def deploy_lottery():
     print("Deployed Lottery Succesfully!!")
 
 
+def start_lottery():
+    account = get_account()
+    lottery = Lottery[-1]
+    starting_txn = lottery.startLottery({"from": account})
+    starting_txn.wait(1)
+    print("Wohoo!! Lottery Started...")
+
+
+def enter_lottery():
+    account = get_account()
+    lottery = Lottery[-1]
+    value = lottery.getEntranceFee() + 100000000  # optional to add any amount of wei
+    enter_txn = lottery.enter({"from": account, "value": value})
+    enter_txn.wait(1)
+    print(f"You enter lottery with ${value} wei")
+
+
+def end_lottery():
+    account = get_account()
+    lottery = Lottery[-1]
+    # To end lottery we first need to fund the contract by LINK because requestRandomness()
+    # needs LINK
+    txn = fund_with_link(lottery.address)
+    txn.wait(1)
+
+    ending_txn = lottery.endLottery({"from": account})
+    ending_txn.wait(1)
+
+    # Since endLottery() send request to chain link, and after few seconds chain link
+    # send random number, so till then we have to wait
+    time.sleep(60)  # 60 sec
+    print(f"Congrats, {lottery.recentWinner()}, you are the Winner!!!")
+
+
 def main():
     deploy_lottery()
+    start_lottery()
+    enter_lottery()
+    end_lottery()

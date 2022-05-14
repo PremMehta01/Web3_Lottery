@@ -63,6 +63,7 @@ contract Lottery is Ownable, VRFConsumerBase {
         players.push(msg.sender);
     }
 
+    // returns x(amount of ETH in term of wei from $50) :: $50 = x wei
     function getEntranceFee() public view returns (uint256) {
         // get current eth price
         (, int256 price, , , ) = ethUsdPriceFeed.latestRoundData();
@@ -119,6 +120,7 @@ contract Lottery is Ownable, VRFConsumerBase {
         // for a random number and in the run time chainlink generates random number and send
         // via fulfillRandomness() function.
         bytes32 requestId = requestRandomness(keyhash, fee);
+        // emit RequestedRandomness(requestId);
     }
 
     function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
