@@ -37,6 +37,8 @@ contract Lottery is Ownable, VRFConsumerBase {
     }
     LOTTERY_STATE public lottery_state;
 
+    event RequestedRandomness(bytes32 requestId);
+
     constructor(
         address _priceFeedAddress,
         address _vrfCoordinator,
@@ -120,7 +122,10 @@ contract Lottery is Ownable, VRFConsumerBase {
         // for a random number and in the run time chainlink generates random number and send
         // via fulfillRandomness() function.
         bytes32 requestId = requestRandomness(keyhash, fee);
-        // emit RequestedRandomness(requestId);
+
+        // emit for testing purpose, see test_can_pick_winner_correctly()
+        // function in test_lottery_unit.py file
+        emit RequestedRandomness(requestId);
     }
 
     function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
