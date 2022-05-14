@@ -9,7 +9,7 @@ import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.6/vendor/SafeMathChainlink.sol";
 
 // To check onlyOwner modifier, no need to define onlyOwner modifier manually after importing
-// Need to configure any import '@' in brownie-config.yaml file
+// Need to configure any import @ in brownie-config.yaml file
 // Also can be use for other purpose https://docs.openzeppelin.com/contracts/4.x/api/access
 import "@openzeppelin/contracts/access/Ownable.sol";
 
